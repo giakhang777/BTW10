@@ -1,18 +1,23 @@
 package com.example.socket;
 
+import android.Manifest;
 import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -105,20 +110,90 @@ public class BlueControl extends AppCompatActivity {
             try {
                 if (this.flaglamp2 == 0) {
                     this.flaglamp2 = 1;
-                    this.btnTb2.setBackgroundResource(R.drawable.tb2on);
+                    this.btnTb2.setBackgroundResource(R.drawable.tb7on);
                     btSocket.getOutputStream().write("7".toString().getBytes());
                     txt1.setText("Thiết bị số 7 đang bật");
                     return;
                 } else {
                     if (this.flaglamp2 == 1) return;
                     this.flaglamp2 = 0;
-                    this.btnTb2.setBackgroundResource(R.drawable.tb2off);
+                    this.btnTb2.setBackgroundResource(R.drawable.tb1off);
                     btSocket.getOutputStream().write("8".toString().getBytes());
                     txt1.setText("Thiết bị số 7 đang tắt");
                     return;
                 }
             } catch (IOException e) {
 
+            }
+        }
+    }
+    private class ConnectBT extends AsyncTask<Void, Void, Void>  // UI thread
+    {
+        private boolean ConnectSuccess = true;
+        @Override
+        protected void onPreExecute()
+        {
+            progress = ProgressDialog.show(BlueControl.this, "Đang kết nối...", "Xin vui lòng đợi!!!");
+        }
+
+        @Override
+        protected Void doInBackground(Void... devices)
+        {
+            try
+            {
+                if (btSocket == null || !isBtConnected)
+                {
+                    myBluetooth = BluetoothAdapter.getDefaultAdapter();
+                    BluetoothDevice dispositivo = myBluetooth.getRemoteDevice(address);//connects to the device's address and checks if it's available
+                    if (ActivityCompat.checkSelfPermission(BlueControl.this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+
+                        btSocket = dispositivo.createInsecureRfcommSocketToServiceRecord(myUUID);
+                        BluetoothAdapter.getDefaultAdapter().cancelDiscovery();//discovery is a heavy process; needs to be cancelled
+                        btSocket.connect();
+                    }
+                }
+            }
+            catch (IOException e)
+            {
+                ConnectSuccess = false;
+            }
+            return null;
+        }
+        @Override
+        protected void onPostExecute(Void result) //after the doInBackground, it checks if everything went fine
+        {
+            super.onPostExecute(result);
+
+            if(!ConnectSuccess)
+            {
+                msg("Kết nối thất bại! Kiểm tra thiết bị.");
+                finish();
+            }
+            else
+            {
+                msg("Kết nối thành công.");
+                isBtConnected = true;
+                pairedDevicesList1();
+            }
+            progress.dismiss();
+        }
+    }
+    private void msg(String s){
+        Toast.makeText(getApplicationContext(),s, Toast.LENGTH_SHORT).show();
+    }
+    private void pairedDevicesList1()
+    {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            pairedDevices1 = myBluetooth.getBondedDevices();
+            if (pairedDevices1.size() > 0) {
+                for(BluetoothDevice bt : pairedDevices1) //Get the device's name and the address
+                {
+                    txtMAC.setText(bt.getName() + " - " + bt.getAddress());
+                }
+            }
+            else
+            {
+                Toast.makeText(getApplicationContext(),  "Không tìm thấy thiết bị đã kết nối.", Toast.LENGTH_LONG).show();
             }
         }
     }
